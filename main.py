@@ -1,7 +1,8 @@
 """The Moon Gets One Star — entry program.
 
 Writes one hand-written one-star review of the Moon to
-``/output/entry.txt`` (or ``$OUTPUT_DIR/entry.txt``). The line is fixed:
+``/output/entry.txt`` (or ``$MAKEFUN_OUTPUT_DIR/entry.txt``,
+falling back to ``$OUTPUT_DIR``). The line is fixed:
 the same review on every run, so the entry the judge reads is exactly
 the line below.
 
@@ -49,7 +50,11 @@ def main():
         for problem in problems:
             print("gate failed: %s" % problem, file=sys.stderr)
         return 1
-    out_dir = os.environ.get("OUTPUT_DIR", "/output")
+    out_dir = (
+        os.environ.get("MAKEFUN_OUTPUT_DIR")
+        or os.environ.get("OUTPUT_DIR")
+        or "/output"
+    )
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, "entry.txt")
     # Atomic write: write to a temp file in the same directory, then
@@ -58,7 +63,11 @@ def main():
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(ENTRY)
+        # mkstemp creates the file mode 0600; the scorer reads the output
+        # as a different user, so make it world-readable before renaming.
+        os.chmod(tmp_path, 0o644)
         os.replace(tmp_path, path)
+        os.chmod(path, 0o644)
     except BaseException:
         try:
             os.unlink(tmp_path)
